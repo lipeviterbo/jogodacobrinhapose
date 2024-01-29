@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head> 
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <link rel="stylesheet" href="./css/style.css">
+    <title>Jogo da Cobrinha</title>
+</head>
+<body>   
+<table>
+    <tr><td><div class="score">score: <span class="score--value">00</span> </div><td>&nbsp;&nbsp;&nbsp;&nbsp;</td><td><div class="record"></div></td><td>&nbsp;&nbsp;&nbsp;&nbsp;</td><td><div><button id="btNovoModelo">Atualizar Comandos</button></div></td></tr>
+
+    <div class="menu-screen">
+        <span class="game-over">game over</span>
+        <span class="final-score">score <span>00</span></span>
+
+        <button class="btn-play">
+            <span class="material-symbols-outlined"></span>
+            
+            Jogar novamente
+        </button>
+    </div>
+</table>
+    <canvas width="600" height="600" class="canvas_jogo"></canvas>
+
+    <canvas class="canvas_webcam" id="canvas_webcam"></canvas>
+    <div id="maior_probabilidade" class="label"></div> 
+    <!-- importação dos scripts do teachablemachine -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/pose@0.8/dist/teachablemachine-pose.min.js"></script>
+    
+<script type="text/javascript">
+
+  //script da webcam
+
+  // More API functions here:
+  // https://github.com/googlecreativelab/teachablemachine-community/tree/master/libraries/pose
+
+  // the link to your model provided by Teachable Machine export panel
+  const URL = "https://teachablemachine.withgoogle.com/models/34SZIKLeN/";
+  let model, webcam, ctx, labelContainer, maxPredictions, label, pontuacao_atual;
+
+    async function init() {
+        const modelURL = URL + "model.json";
+        const metadataURL = URL + "metadata.json";
+
+        // load the model and metadata
+        // Refer to tmImage.loadFromFiles() in the API to support files from a file picker
+        // Note: the pose library adds a tmPose object to your window (window.tmPose)
+        model = await tmPose.load(modelURL, metadataURL);
+        maxPredictions = model.getTotalClasses();
+
+        // Convenience function to setup a webcam
+        const size = 120;
+        const flip = true; // whether to flip the webcam
+        webcam = new tmPose.Webcam(size, size, flip); // width, height, flip
+        await webcam.setup(); // request access to the webcam
+        await webcam.play();
+        window.requestAnimationFrame(loop);
+
+        // append/get elements to the DOM
+        const canvas_webcam = document.getElementById("canvas_webcam")
+        canvas_webcam.width = size; canvas_webcam.height = size;
+        ctx = canvas_webcam.getContext("2d");
+    }
+
+    async function loop(timestamp) {
+        webcam.update(); // update the webcam frame
+        await predict();
+        window.requestAnimationFrame(loop);
+    }
+
+    async function predict() {
+        // Prediction #1: run input through posenet
+        // estimatePose can take in an image, video or canvas html element
+        const { pose, posenetOutput } = await model.estimatePose(webcam.canvas);
+        // Prediction 2: run input through teachable machine classification model
+        const prediction = await model.predict(posenetOutput);
+
+        let vetor_auxiliar = [...prediction];
+        vetor_auxiliar.sort(function compare(a, b) {
+            if (a.probability > b.probability) return -1;
+            if (a.probability < b.probability) return 1;
+            return 0;
+        });
+        document.getElementById("maior_probabilidade").innerHTML="Comando: "+vetor_auxiliar[0].className;
+        label = vetor_auxiliar[0].className;
+        // console.log(vetor_auxiliar[0].className);
+        drawPose(pose);
+    }
+
+    function drawPose(pose) {
+        if (webcam.canvas) {
+            ctx.drawImage(webcam.canvas, 0, 0);
+            // draw the keypoints and skeleton
+            if (pose) {
+                const minPartConfidence = 0.5;
+                tmPose.drawKeypoints(pose.keypoints, minPartConfidence, ctx);
+                tmPose.drawSkeleton(pose.keypoints, minPartConfidence, ctx);
+            }
+        }
+    }
+  document.addEventListener("DOMContentLoaded", () => {
+    
+    init();// Inicia o vídeo da webcam
+  });
+</script>
+    <script src="./js/script.js" type="module">/*este aqui é o script do jogo*/</script>
+</body>
+</html>
